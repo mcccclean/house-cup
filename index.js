@@ -7,6 +7,7 @@ var store = require('nedb-promise')({
     filename: 'housecup.db',
     autoload: true
 });
+var moment = require('moment');
 
 var textnumber = require('./lib/textnumber');
 function findnumber(text) {
@@ -59,3 +60,46 @@ function search(term) {
 
 search('points');
 
+var HOUR = 1000 * 60 * 60;
+
+function getscores() {
+    var scores = {};
+    return Promise.all(houses.map(function(h) {
+        return store.findOne({ target: h }).then(function(doc) {
+            log("H", h, doc);
+            if(doc) {
+                scores[h] = doc.amount;
+            } else {
+                scores[h] = 0;
+            }
+        });
+    })).then(function() {
+        return scores;
+    });
+}
+
+function reportscores() {
+    return getscores().then(function(scores) {
+        var lines = houses.map(function(h) {
+            return h[0].toUpperCase() + h.slice(1) + ": " + scores[h];
+        });
+        lines = ['Current standings:'].concat(lines);
+        var tweet = lines.join('\n');
+        log(tweet);
+        bot.tweet(tweet);
+    }).catch(function(e) {
+        log("ERR", e);
+    });
+}
+
+function reportwinner() {
+    return getscores().then(function(scores) {
+        // annouce a winner
+        
+        // reset scores
+        store.update({}, { $set: { amount: 0 } });
+    });
+}
+
+reportscores();
+setInterval(reportscores, HOUR * 24); 
