@@ -83,13 +83,17 @@ function getscores() {
     });
 }
 
-function reportscores(scores) {
+function title(w) {
+    return w[0].toUpperCase() + w.slice(1);
+}
+
+function reportscores(note, scores) {
     var lines = houses.sort(function(a, b) {
         return scores[a] - scores[b];
     }).map(function(h) {
-        return h[0].toUpperCase() + h.slice(1) + ": " + scores[h];
+        return title(h) + ": " + scores[h];
     });
-    var tweet = ['Current standings:'].concat(lines).join('\n');
+    var tweet = [note].concat(lines).join('\n');
     log(tweet);
     bot.tweet(tweet);
 }
@@ -97,11 +101,22 @@ function reportscores(scores) {
 function reportwinner() {
     return getscores().then(function(scores) {
         // annouce a winner
-        reportscores(scores);
+        var winner = houses.sort(function(a, b) {
+            return scores[a] - scores[b];
+        })[0];
+        reportscores('Congratulations to ' + title(winner), scores);
         
         // reset scores
         store.update({ type: 'score' }, { $set: { amount: 0 } });
     });
 }
 
+function reportprogress() {
+    return getscores().then(function(scores) {
+        // annouce a winner
+        reportscores('Current standings:', scores);
+    });
+}
+
 new CronJob('00 00 20 * * *', reportwinner, null, true, 'UTC');
+new CronJob('00 00 0-19/2,22 * * *', reportprogress, null, true, 'UTC');
