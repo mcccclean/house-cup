@@ -5,12 +5,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "forever start --uid housecup index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "config": "^1.21.0",
+    "cron": "^1.1.0",
     "mcccclean-twitterbot": "^2.1.0",
     "nedb-promise": "^2.0.0",
     "pretty-good-log": "^1.0.0"

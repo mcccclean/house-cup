@@ -7,7 +7,8 @@ var store = require('nedb-promise')({
     filename: 'housecup.db',
     autoload: true
 });
-var moment = require('moment');
+var CronJob = require('cron').CronJob;
+
 
 var textnumber = require('./lib/textnumber');
 function findnumber(text) {
@@ -35,32 +36,36 @@ function hit(text) {
         var amount = findnumber(parts[0]);
         var target = findtarget(parts[1]);
         if(amount && target) {
-            log(text);
-            log("PAYOUT:", amount, target);
-            store.update(
-                    { target: target },
+            return store.update(
+                    { type: 'score', target: target },
                     { $inc: { amount: amount } },
                     { upsert: true }
             ).then(function() {
                 return store.findOne({ target: target });
             }).then(function(doc) {
-                log(doc);
+                return {
+                    target: target,
+                    amount: amount,
+                    total: doc.amount
+                };
             });
-        } else {
-            log('No payout');
         }
     }
+    return Promise.resolve(null);
 }
 
 function search(term) {
     bot.stream(term, function(t) {
-        hit(t.text);  
+        hit(t.text).then(function(doc) {
+            if(doc) {
+                log(t.user.screen_name, ': ', t.text);
+                log(doc);
+            }
+        });  
     });
 }
 
 search('points');
-
-var HOUR = 1000 * 60 * 60;
 
 function getscores() {
     var scores = {};
@@ -78,28 +83,25 @@ function getscores() {
     });
 }
 
-function reportscores() {
-    return getscores().then(function(scores) {
-        var lines = houses.map(function(h) {
-            return h[0].toUpperCase() + h.slice(1) + ": " + scores[h];
-        });
-        lines = ['Current standings:'].concat(lines);
-        var tweet = lines.join('\n');
-        log(tweet);
-        bot.tweet(tweet);
-    }).catch(function(e) {
-        log("ERR", e);
+function reportscores(scores) {
+    var lines = houses.sort(function(a, b) {
+        return scores[a] - scores[b];
+    }).map(function(h) {
+        return h[0].toUpperCase() + h.slice(1) + ": " + scores[h];
     });
+    var tweet = ['Current standings:'].concat(lines).join('\n');
+    log(tweet);
+    bot.tweet(tweet);
 }
 
 function reportwinner() {
     return getscores().then(function(scores) {
         // annouce a winner
+        reportscores(scores);
         
         // reset scores
-        store.update({}, { $set: { amount: 0 } });
+        store.update({ type: 'score' }, { $set: { amount: 0 } });
     });
 }
 
-reportscores();
-setInterval(reportscores, HOUR * 24); 
+new CronJob('00 00 20 * * *', reportwinner, null, true, 'UTC');
