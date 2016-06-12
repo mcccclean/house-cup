@@ -13,7 +13,7 @@
   "dependencies": {
     "config": "^1.21.0",
     "cron": "^1.1.0",
-    "mcccclean-twitterbot": "^2.1.0",
+    "mcccclean-twitterbot": "^2.2.0",
     "nedb-promise": "^2.0.0",
     "pretty-good-log": "^1.0.0"
   }

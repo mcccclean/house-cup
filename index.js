@@ -41,7 +41,7 @@ function hit(text) {
                     { $inc: { amount: amount } },
                     { upsert: true }
             ).then(function() {
-                return store.findOne({ target: target });
+                return store.findOne({ type: 'score', target: target });
             }).then(function(doc) {
                 return {
                     target: target,
@@ -70,7 +70,7 @@ search('points');
 function getscores() {
     var scores = {};
     return Promise.all(houses.map(function(h) {
-        return store.findOne({ target: h }).then(function(doc) {
+        return store.findOne({ type: 'score', target: h }).then(function(doc) {
             log("H", h, doc);
             if(doc) {
                 scores[h] = doc.amount;
@@ -87,27 +87,44 @@ function title(w) {
     return w[0].toUpperCase() + w.slice(1);
 }
 
-function reportscores(note, scores) {
-    var lines = houses.sort(function(a, b) {
-        return scores[a] - scores[b];
-    }).map(function(h) {
-        return title(h) + ": " + scores[h];
+function scoresort(scores) {
+    return houses.map(function(h) {
+        return { house: h, score: scores[h] }; 
+    }).sort(function(a, b) {
+        return b.score - a.score;
     });
-    var tweet = [note].concat(lines).join('\n');
-    log(tweet);
+}
+
+function reportscores(note, scores) {
+    var lines = scoresort(scores).map(function(h) {
+        return title(h.house) + ": " + h.score;
+    });
+    if(typeof(note) === 'string') {
+        note = [note];
+    }
+    var tweet = note.concat(lines).join('\n');
     bot.tweet(tweet);
+    log(tweet);
 }
 
 function reportwinner() {
     return getscores().then(function(scores) {
         // annouce a winner
         var winner = houses.sort(function(a, b) {
-            return scores[a] - scores[b];
+            return scores[b] - scores[a];
         })[0];
-        reportscores('Congratulations to ' + title(winner), scores);
+        reportscores([
+            'The winner is in! Congratulations to...',
+            ':sparkles: ' + winner.toUpperCase() + ' :sparkles:',
+            '---',
+        ], scores);
         
         // reset scores
-        store.update({ type: 'score' }, { $set: { amount: 0 } });
+        store.update(
+            { type: 'score' }, 
+            { $set: { amount: 0 } }, 
+            { multi: true }
+        );
     });
 }
 
